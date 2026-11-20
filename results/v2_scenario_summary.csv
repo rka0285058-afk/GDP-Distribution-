@@ -1,0 +1,10 @@
+scenario,target_pct,gdp_multiple_2047,gini_2026,gini_2047,state_income_ratio_2047,state_income_ratio_ex_delhi,cv_demographic,cv_state,cv_decile,avg_structural_cost_pct_gdp,avg_transfer_cost_pct_gdp,cumulative_cost_lakh_cr
+Trend,6.5,3.75,0.571,0.563,9.18,4.97,0.021,0.023,0.024,0.08,0.0,11.0
+Trend + transfers only,6.5,3.75,0.571,0.571,9.18,4.97,0.021,0.023,0.024,0,0.25,47.0
+Inclusive restructuring,6.5,3.75,0.571,0.571,9.98,5.03,0.004,0.003,0.001,2.35,0.0,344.0
+Trend,6.9,4.06,0.571,0.564,9.22,4.98,0.021,0.022,0.024,0.08,0.0,11.0
+Trend + transfers only,6.9,4.06,0.571,0.571,9.22,4.98,0.021,0.022,0.024,0,0.24,47.0
+Inclusive restructuring,6.9,4.06,0.571,0.571,9.98,5.03,0.004,0.003,0.001,2.54,0.0,388.0
+Trend,7.3,4.39,0.571,0.564,9.26,4.99,0.022,0.021,0.025,0.07,0.0,11.0
+Trend + transfers only,7.3,4.39,0.571,0.571,9.26,4.99,0.022,0.021,0.025,0,0.23,48.0
+Inclusive restructuring,7.3,4.39,0.571,0.571,9.98,5.03,0.004,0.003,0.001,2.73,0.0,435.0

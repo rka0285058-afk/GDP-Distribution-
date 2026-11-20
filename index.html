@@ -1,0 +1,507 @@
+<title>Inclusive Growth Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one control strip on top, six read-outs, then six charts in a two-column grid. Trend is always the reference. */
+:root {
+  --bg: #f4f5f7; --surface: #fcfcfb; --ink: #1b1f24; --ink2: #4a525c; --ink3: #66707c;
+  --line: #dde1e6; --grid: #e8ebef; --soft: #eef0f3;
+  --c-trend: #2a6fdb; --c-scen: #c4560a; --c-third: #1b8a6b;
+  --f-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-head: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121413; --surface: #1a1a19; --ink: #eceae6; --ink2: #b4b1aa; --ink3: #8f8c85;
+    --line: #2d2d2b; --grid: #2a2a28; --soft: #232322;
+    --c-trend: #5b94f0; --c-scen: #d27a22; --c-third: #3aa985; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121413; --surface: #1a1a19; --ink: #eceae6; --ink2: #b4b1aa; --ink3: #8f8c85;
+  --line: #2d2d2b; --grid: #2a2a28; --soft: #232322;
+  --c-trend: #5b94f0; --c-scen: #d27a22; --c-third: #3aa985; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--f-head); margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 15px; font-weight: 600; }
+.sub { color: var(--ink2); margin: 4px 0 0; max-width: 70ch; }
+.note { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; color: var(--ink2); font-size: 12.5px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+button, input { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--c-trend); outline-offset: 2px; }
+
+/* controls */
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px 24px; align-items: start; }
+.ctl label, .ctl .lbl { display: flex; justify-content: space-between; gap: 8px; font-weight: 500; font-size: 13px; margin-bottom: 6px; }
+.ctl output { font-family: var(--f-head); font-weight: 600; color: var(--c-scen); font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--c-scen); margin: 0; }
+.ticks { display: flex; justify-content: space-between; color: var(--ink3); font-size: 11px; margin-top: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 6px 12px; cursor: pointer; font-size: 13px; color: var(--ink2); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.btn:hover { background: var(--soft); }
+details.adv { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+details.adv summary { cursor: pointer; font-weight: 500; font-size: 13px; }
+details.adv .controls { margin-top: 12px; }
+
+/* tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.tile .k { color: var(--ink2); font-size: 12px; font-weight: 500; }
+.tile .v { font-family: var(--f-head); font-size: 26px; font-weight: 600; margin: 2px 0; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.tile .d { font-size: 12px; color: var(--ink2); }
+.tile .d b { font-weight: 600; color: var(--ink); }
+
+/* charts */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.charts .wide { grid-column: 1 / -1; }
+.chead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.cdesc { color: var(--ink2); font-size: 12.5px; margin: 2px 0 10px; max-width: 64ch; }
+.cbox { position: relative; width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink2); margin-bottom: 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legend i.sq { border-radius: 2px; }
+.legend i.ln { width: 14px; height: 3px; border-radius: 2px; vertical-align: 2px; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink2); font-weight: 500; }
+.foot { color: var(--ink3); font-size: 12px; max-width: 90ch; }
+#err { display: none; }
+@media (max-width: 480px) { h1 { font-size: 22px; } .tile .v { font-size: 22px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Inclusive Growth Simulator</h1>
+    <p class="sub">Move the growth target and the inclusion push to see how India's 6.5 to 7.3% growth is shared across sectors, groups, states and income deciles, and what the shift would cost. Trend growth is the reference throughout.</p>
+  </header>
+  <div class="note">Inputs are rounded placeholders at the scale of MoSPI, PLFS and state data. Read the patterns, not the decimals, until official series are loaded.</div>
+  <div id="err" class="note" role="alert"></div>
+
+  <section class="panel" aria-label="Scenario controls">
+    <div class="controls">
+      <div class="ctl">
+        <label for="g">Annual GDP growth target <output id="gOut">6.9%</output></label>
+        <input id="g" type="range" min="6.5" max="7.3" step="0.1" value="6.9">
+        <div class="ticks"><span>6.5%</span><span>7.3%</span></div>
+      </div>
+      <div class="ctl">
+        <label for="wi">Inclusion push <output id="wiOut">Moderate</output></label>
+        <input id="wi" type="range" min="0" max="4" step="1" value="2">
+        <div class="ticks"><span>Off</span><span>Light</span><span>Moderate</span><span>Strong</span><span>Max</span></div>
+      </div>
+      <div class="ctl">
+        <label for="yr">Horizon <output id="yrOut">FY2047</output></label>
+        <input id="yr" type="range" min="1" max="21" step="1" value="21">
+        <div class="row" style="margin-top:6px"><button class="btn" id="play" type="button">Play years</button><span class="ticks" style="margin:0">FY2027 to FY2047</span></div>
+      </div>
+      <div class="ctl">
+        <div class="lbl">Compare across</div>
+        <div class="seg" id="lensSeg" role="group" aria-label="Lens">
+          <button type="button" data-lens="decile" aria-pressed="true">Deciles</button>
+          <button type="button" data-lens="state" aria-pressed="false">States</button>
+          <button type="button" data-lens="demographic" aria-pressed="false">Groups</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" data-preset="trend" type="button">Trend only</button>
+          <button class="btn" data-preset="balanced" type="button">Balanced</button>
+          <button class="btn" data-preset="max" type="button">Max inclusion</button>
+        </div>
+      </div>
+    </div>
+    <details class="adv">
+      <summary>Cost assumptions</summary>
+      <div class="controls">
+        <div class="ctl">
+          <label for="icor">Capital intensity (ICOR) vs baseline <output id="icorOut">1.0×</output></label>
+          <input id="icor" type="range" min="0.5" max="1.5" step="0.1" value="1">
+        </div>
+        <div class="ctl">
+          <label for="mover">Cost per worker moved <output id="moverOut">₹1.5 lakh</output></label>
+          <input id="mover" type="range" min="0.5" max="3" step="0.1" value="1.5">
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="tiles" id="tiles" aria-live="polite"></section>
+
+  <section class="charts">
+    <div class="panel wide">
+      <div class="chead"><h2 id="lensTitle">Earnings by income decile</h2>
+        <div class="row">
+          <div class="seg" id="metricSeg" role="group" aria-label="Metric">
+            <button type="button" data-metric="growth" aria-pressed="true">Growth multiple</button>
+            <button type="button" data-metric="level" aria-pressed="false">Earnings level</button>
+          </div>
+          <button class="btn" id="tblBtn" type="button" aria-pressed="false">View as table</button>
+        </div>
+      </div>
+      <p class="cdesc" id="lensDesc"></p>
+      <div class="legend"><span><i style="background:var(--c-trend)"></i>Trend</span><span><i style="background:var(--c-scen)"></i>Scenario</span></div>
+      <div class="cbox" id="lensBox"><canvas id="cLens" role="img" aria-label="Earnings by group, trend versus scenario"></canvas></div>
+      <div class="tablewrap" id="lensTable" hidden></div>
+    </div>
+
+    <div class="panel">
+      <h2>Sector growth rates</h2>
+      <p class="cdesc" id="secDesc"></p>
+      <div class="legend"><span><i class="sq" style="background:var(--c-trend)"></i>Trend</span><span><i class="sq" style="background:var(--c-scen)"></i>Scenario</span></div>
+      <div class="cbox" style="height:340px"><canvas id="cSec" role="img" aria-label="Sector growth rates, trend versus scenario"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h2>Cost against evenness</h2>
+      <p class="cdesc">Each point is one inclusion push at the chosen growth target. Further left and lower is cheaper and more even.</p>
+      <div class="cbox" style="height:340px"><canvas id="cFront" role="img" aria-label="Policy cost versus dispersion of earnings growth"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h2>Policy cost each year</h2>
+      <p class="cdesc">Share of GDP. Bars are the scenario's cost, the line is a transfer-only route to the same equal growth. Years after the horizon are dimmed.</p>
+      <div class="legend"><span><i class="sq" style="background:var(--c-scen)"></i>Extra investment</span><span><i class="sq" style="background:var(--c-third)"></i>Worker reallocation</span><span><i class="ln" style="background:var(--c-trend)"></i>Transfers instead</span></div>
+      <div class="cbox" style="height:300px"><canvas id="cCost" role="img" aria-label="Policy cost per year as share of GDP"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h2>Decile earnings Gini</h2>
+      <p class="cdesc">Equal growth keeps the starting inequality in place. Trend growth drifts it down slightly in this placeholder data.</p>
+      <div class="legend"><span><i class="ln" style="background:var(--c-trend)"></i>Trend</span><span><i class="ln" style="background:var(--c-scen)"></i>Scenario</span></div>
+      <div class="cbox" style="height:300px"><canvas id="cGini" role="img" aria-label="Gini of decile earnings over time"></canvas></div>
+    </div>
+
+    <div class="panel wide">
+      <h2>Share of workers in agriculture</h2>
+      <p class="cdesc">Evening out gains partly depends on how fast people leave low-productivity farm work.</p>
+      <div class="legend"><span><i class="ln" style="background:var(--c-trend)"></i>Trend</span><span><i class="ln" style="background:var(--c-scen)"></i>Scenario</span></div>
+      <div class="cbox" style="height:260px"><canvas id="cAgri" role="img" aria-label="Agriculture share of employment over time"></canvas></div>
+    </div>
+  </section>
+
+  <p class="foot">Method: each year an optimiser picks sector growth rates and employment shifts that hit the GDP target exactly while narrowing earnings growth gaps across demographic groups, states and deciles. The inclusion push sets how strongly gaps are penalised against distance from trend growth. Investment cost is extra capital for sectors pushed above trend (ICOR times extra output). Costs are gross, in constant FY2027 rupees, and ignore capital freed where other sectors slow. Scenarios are precomputed on a grid of targets and pushes; cost assumptions recalculate live.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var D, M, charts = {}, playTimer = null;
+  var S = { G: 6.9, wi: 2, y: 21, lens: 'decile', metric: 'growth', icor: 1, mover: 1.5, table: false };
+  var PUSH = ['Off', 'Light', 'Moderate', 'Strong', 'Max'];
+  var LENS_NAME = { decile: 'income decile', state: 'state or region', demographic: 'demographic group' };
+  var fmt = function (v, d) { return v.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d }); };
+
+  function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function key(G, wi) { return G.toFixed(1) + '|' + M.weights[wi]; }
+  function run(G, wi) { return D.runs[key(G, wi)]; }
+  function cum(r) {
+    if (!r._cum) {
+      var n = r.grp[0].length, c = [new Array(n).fill(1)];
+      for (var t = 0; t < r.grp.length; t++) { c.push(c[t].map(function (v, i) { return v * (1 + r.grp[t][i] / 100); })); }
+      r._cum = c;
+    }
+    return r._cum;
+  }
+  function gini(x) {
+    var s = 0, n = x.length, m = x.reduce(function (a, b) { return a + b; }, 0) / n;
+    for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) s += Math.abs(x[i] - x[j]);
+    return s / (2 * n * n * m);
+  }
+  function cv(a) {
+    var m = a.reduce(function (p, q) { return p + q; }, 0) / a.length;
+    return Math.sqrt(a.reduce(function (p, q) { return p + (q - m) * (q - m); }, 0) / a.length) / m;
+  }
+  function pick(arr, idx) { return idx.map(function (i) { return arr[i]; }); }
+  function giniAt(r, y) {
+    if (y === 0) return gini(M.l0);
+    return r.gini[y - 1];
+  }
+  function stateGap(r, y) {
+    var c = cum(r)[y], st = M.lens.state, v = [];
+    st.forEach(function (idx, j) { if (M.states[j] !== 'Delhi') v.push(M.st_rho[j] * c[idx]); });
+    return Math.max.apply(null, v) / Math.min.apply(null, v);
+  }
+  function costs(r, G) {
+    var inv = [], rea = [], gdp = [], n = r.exc.length;
+    for (var t = 0; t < n; t++) {
+      var g = M.gdp0 * Math.pow(1 + G / 100, t), s = 0;
+      for (var k = 0; k < r.exc[t].length; k++) s += M.icor[k] * S.icor * r.exc[t][k];
+      inv.push(s);
+      rea.push(r.posd[t] * M.lf0 * Math.pow(1 + M.labour_growth, t) * S.mover * 1e5 / g);
+      gdp.push(g);
+    }
+    return { inv: inv, rea: rea, gdp: gdp };
+  }
+  function avgCost(c, y) { var s = 0; for (var t = 0; t < y; t++) s += c.inv[t] + c.rea[t]; return s / y * 100; }
+  function cumCost(c, y) { var s = 0; for (var t = 0; t < y; t++) s += (c.inv[t] + c.rea[t]) * c.gdp[t] / 1e12; return s; }
+  function trCost(r, G, y) {
+    var s = 0, a = 0;
+    for (var t = 0; t < y; t++) { a += r.tra[t]; s += r.tra[t] * M.gdp0 * Math.pow(1 + G / 100, t) / 1e12; }
+    return { avg: a / y * 100, cum: s };
+  }
+
+  function lensData(r, y) {
+    var idx = M.lens[S.lens], names = pick(M.names, idx), c = cum(r)[y], v = pick(c, idx);
+    if (S.metric === 'level') {
+      if (S.lens === 'state') v = v.map(function (m, j) { return M.st_rho[j] * m; });
+      else if (S.lens === 'decile') v = v.map(function (m, j) { return M.l0[j] * 100 * m; });
+    }
+    return { names: names, v: v, mult: pick(c, idx) };
+  }
+
+  function tile(k, v, d) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="d">' + d + '</div></div>'; }
+  function vs(a, b, unit, dec, word) {
+    var diff = a - b;
+    if (Math.abs(diff) < Math.pow(10, -dec) / 2) return 'Same as trend';
+    return '<b>' + (diff < 0 ? '▼ ' : '▲ ') + fmt(Math.abs(diff), dec) + unit + '</b> ' + (diff < 0 ? word[0] : word[1]) + ' vs trend';
+  }
+
+  function render() {
+    var G = S.G, y = S.y, sc = run(G, S.wi), tr = run(G, 0);
+    var cs = cum(sc)[y], ct = cum(tr)[y], idx = M.lens[S.lens];
+    var cvS = cv(pick(cs, idx)) * 100, cvT = cv(pick(ct, idx)) * 100;
+    var mult = Math.pow(1 + G / 100, y), gdp = M.gdp0 / 1e12 * mult;
+    var cC = costs(sc, G), tC = trCost(tr, G, y);
+    var gS = giniAt(sc, y), gT = giniAt(tr, y), sgS = stateGap(sc, y), sgT = stateGap(tr, y);
+
+    $('gOut').textContent = G.toFixed(1) + '%';
+    $('wiOut').textContent = PUSH[S.wi];
+    $('yrOut').textContent = 'FY' + (2026 + y);
+    $('icorOut').textContent = S.icor.toFixed(1) + '×';
+    $('moverOut').textContent = '₹' + S.mover.toFixed(1) + ' lakh';
+
+    $('tiles').innerHTML =
+      tile('Economy in FY' + (2026 + y), '₹' + fmt(gdp, 0) + ' lakh cr', fmt(mult, 2) + '× FY2026, same in both') +
+      tile('Gap across ' + LENS_NAME[S.lens] + 's', fmt(cvS, 2) + '%', vs(cvS, cvT, ' pts', 2, ['tighter', 'wider']) + '<br>spread of earnings growth') +
+      tile('Decile earnings Gini', fmt(gS, 3), vs(gS, gT, '', 3, ['lower', 'higher'])) +
+      tile('Richest to poorest state', fmt(sgS, 2) + '×', vs(sgS, sgT, '×', 2, ['narrower', 'wider']) + '<br>excluding Delhi') +
+      tile('Policy cost per year', fmt(avgCost(cC, y), 2) + '% of GDP', '₹' + fmt(cumCost(cC, y), 0) + ' lakh cr cumulative') +
+      tile('Transfers instead', fmt(tC.avg, 2) + '% of GDP', '₹' + fmt(tC.cum, 0) + ' lakh cr to equalise growth');
+
+    renderLens(sc, tr, y);
+    renderSectors(sc, tr, y);
+    renderFront(y);
+    renderCost(sc, tr, cC, y);
+    renderGini(sc, tr);
+    renderAgri(sc, tr);
+  }
+
+  var TIP = function () {
+    return { backgroundColor: css('--surface'), titleColor: css('--ink'), bodyColor: css('--ink2'), borderColor: css('--line'), borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true };
+  };
+  function scales(extra) {
+    var tick = { color: css('--ink3'), font: { size: 11 } }, grid = { color: css('--grid') };
+    return Object.assign({ x: { ticks: tick, grid: grid, border: { color: css('--line') } }, y: { ticks: tick, grid: grid, border: { color: css('--line') } } }, extra || {});
+  }
+  function mk(id, cfg) {
+    if (charts[id]) { charts[id].destroy(); }
+    charts[id] = new Chart($(id).getContext('2d'), cfg);
+  }
+
+  var connector = {
+    id: 'connector',
+    beforeDatasetsDraw: function (ch) {
+      var a = ch.getDatasetMeta(0).data, b = ch.getDatasetMeta(1).data, c = ch.ctx;
+      c.save(); c.strokeStyle = css('--line'); c.lineWidth = 3; c.lineCap = 'round';
+      for (var i = 0; i < a.length; i++) { c.beginPath(); c.moveTo(a[i].x, a[i].y); c.lineTo(b[i].x, b[i].y); c.stroke(); }
+      c.restore();
+    }
+  };
+
+  function renderLens(sc, tr, y) {
+    var a = lensData(tr, y), b = lensData(sc, y), n = a.names.length, lvl = S.metric === 'level';
+    var order = a.names.map(function (_, i) { return i; });
+    if (S.lens === 'state') order.sort(function (i, j) { return b.v[j] - b.v[i]; });
+    var names = order.map(function (i) { return a.names[i]; });
+    var pa = order.map(function (i, k) { return { x: a.v[i], y: k }; });
+    var pb = order.map(function (i, k) { return { x: b.v[i], y: k }; });
+    $('lensTitle').textContent = (lvl ? 'Earnings level by ' : 'Earnings growth by ') + LENS_NAME[S.lens];
+    $('lensDesc').textContent = lvl
+      ? 'Earnings per worker, India average in FY2026 = 100, in FY' + (2026 + y) + '. Level gaps persist when every group grows at the same rate.'
+      : 'Earnings per worker in FY' + (2026 + y) + ' as a multiple of FY2026. The closer the dots, the less the scenario changes versus trend.';
+    $('lensBox').style.height = (n * 30 + 70) + 'px';
+    var dec = lvl ? 0 : 2;
+    mk('cLens', {
+      type: 'scatter', plugins: [connector],
+      data: { datasets: [
+        { label: 'Trend', data: pa, backgroundColor: css('--c-trend'), borderColor: css('--surface'), borderWidth: 2, pointRadius: 6, pointHoverRadius: 8 },
+        { label: 'Scenario', data: pb, backgroundColor: css('--c-scen'), borderColor: css('--surface'), borderWidth: 2, pointRadius: 6, pointHoverRadius: 8 }
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: Object.assign(TIP(), { callbacks: {
+          title: function (it) { return names[it[0].raw.y]; },
+          label: function (it) { return it.dataset.label + ': ' + fmt(it.raw.x, dec) + (lvl ? '' : '×'); },
+          afterBody: function (it) { var i = it[0].raw.y; return 'Difference: ' + (pb[i].x - pa[i].x >= 0 ? '+' : '') + fmt(pb[i].x - pa[i].x, lvl ? 1 : 3); }
+        } }) },
+        scales: scales({
+          y: { reverse: true, min: -0.5, max: n - 0.5, afterBuildTicks: function (ax) { ax.ticks = names.map(function (_, i) { return { value: i }; }); },
+            ticks: { color: css('--ink'), font: { size: 12 }, callback: function (v) { return names[v]; }, autoSkip: false }, grid: { color: css('--grid') }, border: { color: css('--line') } },
+          x: { ticks: { color: css('--ink3'), font: { size: 11 }, callback: function (v) { return fmt(v, lvl ? 0 : 2) + (lvl ? '' : '×'); } }, grid: { color: css('--grid') }, border: { color: css('--line') } }
+        })
+      }
+    });
+    var rows = order.map(function (i, k) {
+      var d = b.v[i] - a.v[i];
+      return '<tr><td>' + a.names[i] + '</td><td>' + fmt(a.v[i], dec) + '</td><td>' + fmt(b.v[i], dec) + '</td><td>' + (d >= 0 ? '+' : '') + fmt(d, lvl ? 1 : 3) + '</td></tr>';
+    }).join('');
+    $('lensTable').innerHTML = '<table><thead><tr><th>' + LENS_NAME[S.lens] + '</th><th>Trend</th><th>Scenario</th><th>Difference</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function renderSectors(sc, tr, y) {
+    $('secDesc').textContent = 'Real growth by sector in FY' + (2026 + y) + '. The scenario shifts growth toward the sectors that employ the groups furthest behind.';
+    mk('cSec', {
+      type: 'bar',
+      data: { labels: M.sectors, datasets: [
+        { label: 'Trend', data: tr.g[y - 1], backgroundColor: css('--c-trend'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 },
+        { label: 'Scenario', data: sc.g[y - 1], backgroundColor: css('--c-scen'), borderRadius: 3, barPercentage: 0.85, categoryPercentage: 0.8 }
+      ] },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: Object.assign(TIP(), { callbacks: { label: function (it) { return it.dataset.label + ': ' + fmt(it.raw, 1) + '%'; } } }) },
+        scales: scales({ x: { beginAtZero: true, ticks: { color: css('--ink3'), font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: css('--grid') }, border: { color: css('--line') } },
+          y: { ticks: { color: css('--ink'), font: { size: 12 } }, grid: { display: false }, border: { color: css('--line') } } })
+      }
+    });
+  }
+
+  var frontLabels = {
+    id: 'frontLabels',
+    afterDatasetsDraw: function (ch) {
+      var pts = ch.getDatasetMeta(0).data, c = ch.ctx;
+      c.save(); c.fillStyle = css('--ink2'); c.font = '11px ' + css('--f-body'); c.textAlign = 'center';
+      pts.forEach(function (p, i) { c.fillText(PUSH[i], p.x, p.y + (i % 2 ? 20 : -12)); });
+      c.restore();
+    }
+  };
+  function renderFront(y) {
+    var pts = [], hi = [];
+    M.weights.forEach(function (w, i) {
+      var r = run(S.G, i), cs = cum(r)[y], c = costs(r, S.G);
+      pts.push({ x: avgCost(c, y), y: cv(pick(cs, M.lens[S.lens])) * 100 });
+    });
+    mk('cFront', {
+      type: 'scatter', plugins: [frontLabels],
+      data: { datasets: [{ label: 'Inclusion push', data: pts, showLine: true, borderColor: css('--c-scen'), borderWidth: 2, backgroundColor: css('--c-scen'),
+        pointBackgroundColor: pts.map(function (_, i) { return i === S.wi ? css('--c-scen') : css('--surface'); }),
+        pointBorderColor: css('--c-scen'), pointBorderWidth: 2, pointRadius: pts.map(function (_, i) { return i === S.wi ? 8 : 5; }), pointHoverRadius: 9 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 14, right: 16 } },
+        plugins: { legend: { display: false }, tooltip: Object.assign(TIP(), { callbacks: {
+          title: function (it) { return 'Push: ' + PUSH[it[0].dataIndex]; },
+          label: function (it) { return ['Cost: ' + fmt(it.raw.x, 2) + '% of GDP per year', 'Growth gap across ' + LENS_NAME[S.lens] + 's: ' + fmt(it.raw.y, 2) + '%']; }
+        } }) },
+        scales: scales({
+          x: { title: { display: true, text: 'Average policy cost (% of GDP per year)', color: css('--ink2'), font: { size: 11 } }, ticks: { color: css('--ink3'), font: { size: 11 } }, grid: { color: css('--grid') }, border: { color: css('--line') } },
+          y: { beginAtZero: true, title: { display: true, text: 'Spread of earnings growth (%)', color: css('--ink2'), font: { size: 11 } }, ticks: { color: css('--ink3'), font: { size: 11 } }, grid: { color: css('--grid') }, border: { color: css('--line') } }
+        })
+      }
+    });
+  }
+
+  function yrs(n) { var a = []; for (var i = 1; i <= n; i++) a.push('FY' + String(2026 + i).slice(2)); return a; }
+  function alpha(hex, a) { return hex + (a < 1 ? Math.round(a * 255).toString(16).padStart(2, '0') : ''); }
+
+  function renderCost(sc, tr, cC, y) {
+    var n = M.years, labels = yrs(n), inv = [], rea = [], tra = [], tint = function (col, t) { return t < y ? col : col + '55'; };
+    for (var t = 0; t < n; t++) { inv.push(cC.inv[t] * 100); rea.push(cC.rea[t] * 100); tra.push(tr.tra[t] * 100); }
+    mk('cCost', {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { type: 'line', label: 'Transfers instead', data: tra, borderColor: css('--c-trend'), backgroundColor: css('--c-trend'), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, order: 0, tension: 0 },
+        { type: 'bar', label: 'Extra investment', data: inv, backgroundColor: inv.map(function (_, t) { return tint(css('--c-scen'), t); }), stack: 's', borderRadius: 2, order: 2 },
+        { type: 'bar', label: 'Worker reallocation', data: rea, backgroundColor: rea.map(function (_, t) { return tint(css('--c-third'), t); }), stack: 's', borderRadius: 2, order: 1 }
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false }, tooltip: Object.assign(TIP(), { callbacks: { label: function (it) { return it.dataset.label + ': ' + fmt(it.raw, 2) + '% of GDP'; } } }) },
+        scales: scales({ x: { stacked: true, ticks: { color: css('--ink3'), font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false }, border: { color: css('--line') } },
+          y: { stacked: true, beginAtZero: true, ticks: { color: css('--ink3'), font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: css('--grid') }, border: { color: css('--line') } } })
+      }
+    });
+  }
+
+  function lineCfg(a, b, y0a, y0b, pct, dec, unit) {
+    var labels = ['FY26'].concat(yrs(M.years));
+    function ds(name, col, arr, st) { return { label: name, data: arr, borderColor: col, backgroundColor: col, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.2 }; }
+    return {
+      type: 'line',
+      data: { labels: labels, datasets: [ds('Trend', css('--c-trend'), [y0a].concat(a)), ds('Scenario', css('--c-scen'), [y0b].concat(b))] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false }, tooltip: Object.assign(TIP(), { callbacks: { label: function (it) { return it.dataset.label + ': ' + fmt(it.raw, dec) + unit; } } }) },
+        scales: scales({ x: { ticks: { color: css('--ink3'), font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false }, border: { color: css('--line') } },
+          y: { ticks: { color: css('--ink3'), font: { size: 11 }, callback: function (v) { return fmt(v, dec) + unit; } }, grid: { color: css('--grid') }, border: { color: css('--line') } } })
+      }
+    };
+  }
+  function renderGini(sc, tr) { mk('cGini', lineCfg(tr.gini, sc.gini, gini(M.l0), gini(M.l0), false, 3, '')); }
+  function renderAgri(sc, tr) {
+    var f = function (r) { return r.e.map(function (e) { return e[0] * 100; }); };
+    mk('cAgri', lineCfg(f(tr), f(sc), M.emp[0] * 100, M.emp[0] * 100, true, 1, '%'));
+  }
+
+  function bind() {
+    $('g').addEventListener('input', function (e) { S.G = Math.round(parseFloat(e.target.value) * 10) / 10; render(); });
+    $('wi').addEventListener('input', function (e) { S.wi = parseInt(e.target.value, 10); render(); });
+    $('yr').addEventListener('input', function (e) { stop(); S.y = parseInt(e.target.value, 10); render(); });
+    $('icor').addEventListener('input', function (e) { S.icor = parseFloat(e.target.value); render(); });
+    $('mover').addEventListener('input', function (e) { S.mover = parseFloat(e.target.value); render(); });
+    $('lensSeg').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      S.lens = b.dataset.lens;
+      Array.prototype.forEach.call($('lensSeg').children, function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      var can = S.lens !== 'demographic';
+      Array.prototype.forEach.call($('metricSeg').children, function (x) { x.disabled = !can && x.dataset.metric === 'level'; x.style.opacity = (!can && x.dataset.metric === 'level') ? 0.4 : 1; });
+      if (!can && S.metric === 'level') { S.metric = 'growth'; setMetricUI(); }
+      render();
+    });
+    function setMetricUI() { Array.prototype.forEach.call($('metricSeg').children, function (x) { x.setAttribute('aria-pressed', x.dataset.metric === S.metric ? 'true' : 'false'); }); }
+    $('metricSeg').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b || b.disabled) return; S.metric = b.dataset.metric; setMetricUI(); render(); });
+    $('tblBtn').addEventListener('click', function () {
+      S.table = !S.table; $('tblBtn').setAttribute('aria-pressed', S.table);
+      $('tblBtn').textContent = S.table ? 'View as chart' : 'View as table';
+      $('lensTable').hidden = !S.table; $('lensBox').hidden = S.table;
+    });
+    document.querySelectorAll('[data-preset]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = b.dataset.preset; S.wi = p === 'trend' ? 0 : p === 'balanced' ? 2 : 4; $('wi').value = S.wi; render();
+      });
+    });
+    $('play').addEventListener('click', function () { playTimer ? stop() : start(); });
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    (mq.addEventListener ? mq.addEventListener('change', render) : mq.addListener(render));
+    new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+  function start() {
+    if (S.y >= M.years) S.y = 1;
+    $('play').textContent = 'Pause';
+    playTimer = setInterval(function () {
+      S.y += 1; $('yr').value = S.y; render();
+      if (S.y >= M.years) stop();
+    }, 450);
+    S.y = Math.max(1, S.y); $('yr').value = S.y; render();
+  }
+  function stop() { if (playTimer) { clearInterval(playTimer); playTimer = null; } $('play').textContent = 'Play years'; }
+
+  fetch('data.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
+    D = d; M = d.meta; bind(); render();
+  }).catch(function (e) {
+    var el = $('err'); el.style.display = 'block'; el.textContent = 'The scenario data could not be loaded (' + e.message + '). Reload the page to try again.';
+  });
+})();
+</script>

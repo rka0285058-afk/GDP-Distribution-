@@ -1,0 +1,7 @@
+scenario,target,gdp_multiple_2047,group_income_cv,best_over_worst_group,nonag_to_ag_productivity,agri_emp_share_2047,agri_gva_share_2047
+Trend,6.5,3.75,0.021,1.06,6.33,35.6,8.0
+Inclusive,6.5,3.75,0.003,1.01,5.51,38.3,10.1
+Trend,6.9,4.06,0.021,1.06,6.61,35.6,7.7
+Inclusive,6.9,4.06,0.003,1.01,5.57,38.2,10.0
+Trend,7.3,4.39,0.022,1.06,6.89,35.6,7.4
+Inclusive,7.3,4.39,0.003,1.01,5.63,38.0,9.8
